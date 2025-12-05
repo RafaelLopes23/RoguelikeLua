@@ -62,12 +62,7 @@ O boss também invoca minions durante a luta!
 
 ## 🎵 Áudio
 
-O jogo possui trilha sonora completa:
-- **Menu/Pause**: Música ambiente suave
-- **Gameplay**: Main theme durante as waves
-- **Boss Fight**: Música épica exclusiva
-
-Efeitos sonoros procedurais para tiros, hits, upgrades e ações.
+O jogo possui trilha sonora, e efeitos sonoros procedurais para tiros, hits, upgrades e ações.
 
 ## 🎨 Visual
 
