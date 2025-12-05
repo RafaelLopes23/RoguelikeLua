@@ -47,16 +47,18 @@ sudo apt install -y love
 | Upgrade | Efeito |
 |---------|--------|
 | Velocidade de Ataque | Dobra a frequência de disparo |
-| Laser Perfurante | Feixe contínuo que atravessa inimigos + 0.5 roubo de vida por hit |
-| Laser Nv.2 | Dano em área ao acertar + 1.0 roubo de vida total |
+| Laser Perfurante | Feixe contínuo que atravessa inimigos + 0.1 roubo de vida por hit |
+| Laser Nv.2 | Dano em área ao acertar + 0.3 roubo de vida total |
 | Dano Aumentado | +10 de dano por acerto |
 | Tiro Espalhado | Dispara múltiplos projéteis (3 no Nv.1, 6 no Nv.2) |
 
 ### Boss: Trojan (Wave 21)
 O boss final possui 5000 HP e 3 fases distintas:
-- **Fase 1** (100%-60% HP): Movimento horizontal, ataques básicos
-- **Fase 2** (60%-30% HP): Modo Charger com dash attacks longos
-- **Fase 3** (30%-0% HP): Modo Glitch com zigzag intenso e dash devastador
+- **Fase 1** (100%-60% HP): Movimento horizontal, projéteis causam 20 de dano
+- **Fase 2** (60%-30% HP): Modo Charger com dash attacks, projéteis causam 30 de dano
+- **Fase 3** (30%-0% HP): Modo Glitch com zigzag intenso, projéteis causam 40 de dano
+
+**Cuidado com o Charge Attack!** Se o boss acertar você durante o dash, causa 50% da sua vida máxima!
 
 O boss também invoca minions durante a luta!
 

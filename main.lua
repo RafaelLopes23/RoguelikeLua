@@ -307,6 +307,7 @@ local bossProjectiles = {}
 
 local function resetGame()
   player = Player.new(love.graphics.getWidth()/2, love.graphics.getHeight()/2)
+  player.lives = 2  -- 2 vidas extras
   enemies = {}
   bullets = {}
   wave = 0
@@ -335,6 +336,25 @@ local function resetGame()
   bossProjectiles = {}
   Questions.reset()
   state = 'play'
+end
+
+-- Função para usar uma vida e continuar
+local function useLife()
+  if player.lives > 0 then
+    player.lives = player.lives - 1
+    player.hp = player.maxHp
+    -- Limpa inimigos e projéteis para dar fôlego
+    enemies = {}
+    bossProjectiles = {}
+    -- Reposiciona player no centro
+    player.x = love.graphics.getWidth() / 2
+    player.y = love.graphics.getHeight() / 2
+    pushFeedback('Vida extra usada! (' .. player.lives .. ' restante' .. (player.lives == 1 and '' or 's') .. ')', {0.4, 1, 0.6})
+    playSound('upgrade')
+    state = 'play'
+    return true
+  end
+  return false
 end
 
 function love.load()
@@ -434,13 +454,15 @@ local function spawnBossMinion()
 end
 
 local function fireBossProjectile(angle, speed, size)
+  -- Dano escala com a fase: 20 (fase 1), 30 (fase 2), 40 (fase 3)
+  local phaseDamage = 10 * (boss.phase + 1)  -- 20, 30, 40
   table.insert(bossProjectiles, {
     x = boss.x,
     y = boss.y,
     vx = math.cos(angle) * speed,
     vy = math.sin(angle) * speed,
     r = size or 8,
-    damage = 10,
+    damage = phaseDamage,
   })
 end
 
@@ -696,6 +718,32 @@ local function updateBoss(dt)
   if bossSpawnTimer <= 0 then
     spawnBossMinion()
     bossSpawnTimer = math.max(1.5, 3.0 - boss.phase * 0.5)  -- Mais rápido nas fases finais
+  end
+
+  -- Colisão do boss com player durante dash (causa 50% da vida máxima)
+  if boss.moveMode == 'dash' then
+    local dx, dy = boss.x - player.x, boss.y - player.y
+    local dist = math.sqrt(dx*dx + dy*dy)
+    local bossRadius = 40  -- Raio aproximado do boss
+    if dist <= bossRadius + player.r then
+      local chargeDamage = math.floor(player.maxHp * 0.5)  -- 50% da vida máxima
+      player.hp = player.hp - chargeDamage
+      playSound('playerHit')
+      pushFeedback('CHARGE! -' .. chargeDamage .. ' HP', {1, 0.2, 0.2})
+      -- Empurra o player para longe
+      if dist > 0 then
+        local pushForce = 200
+        player.x = player.x - (dx/dist) * pushForce * 0.5
+        player.y = player.y - (dy/dist) * pushForce * 0.5
+      end
+      -- Cancela o dash após acertar
+      boss.moveMode = 'wander'
+      boss.dashCooldown = 2 + math.random()
+      if player.hp <= 0 then
+        player.hp = 0
+        state = 'gameover'
+      end
+    end
   end
 end
 
@@ -1096,14 +1144,14 @@ local function applyUpgrade(key)
     pushFeedback('Upgrade: velocidade dobrada', {0.4, 0.9, 1})
   elseif key == 'laser' then
     player.laserLevel = (player.laserLevel or 0) + 1
-    player.laserLifesteal = (player.laserLifesteal or 0) + 0.5  -- +0.5 lifesteal por nível
+    player.laserLifesteal = (player.laserLifesteal or 0) + 0.1  -- +0.1 lifesteal por nível (0.1 lvl1, 0.2 lvl2 = 0.3 total)
     if player.laserLevel == 1 then
       player.hasLaser = true
       laser.active = false
       laser.timer = laser.interval
-      pushFeedback('Laser ativo! +0.5 roubo de vida', {0.8, 0.95, 1})
+      pushFeedback('Laser ativo! +0.1 roubo de vida', {0.8, 0.95, 1})
     elseif player.laserLevel >= 2 then
-      pushFeedback('Laser Nv.2: área + 1.0 roubo de vida!', {1, 0.6, 0.9})
+      pushFeedback('Laser Nv.2: área + 0.3 roubo de vida!', {1, 0.6, 0.9})
     end
   elseif key == 'damage' then
     player.bulletDamage = player.bulletDamage + 10
@@ -1272,7 +1320,10 @@ function love.keypressed(key)
   end
   if key == 'r' and (state == 'gameover' or state == 'victory') then
     resetGame()
-  elseif key == 'c' and state ~= 'title' and state ~= 'upgrade' then
+  elseif key == 'c' and state == 'gameover' and player.lives > 0 then
+    -- Continuar com vida extra
+    useLife()
+  elseif key == 'c' and state ~= 'title' and state ~= 'upgrade' and state ~= 'gameover' then
     cheatJumpToQuestion()
   elseif key == 'b' and state == 'play' then
     cheatJumpToBoss()
@@ -1534,7 +1585,7 @@ local function drawTitle()
   love.graphics.rectangle('line', playBtn.x, playBtn.y, playBtn.w, playBtn.h, 8, 8)
   love.graphics.setColor(0.4, 1, 0.6)
   love.graphics.setFont(titleFont)
-  love.graphics.printf('▶ Começar partida', playBtn.x, playBtn.y + (playBtn.h - titleFont:getHeight()) / 2, playBtn.w, 'center')
+  love.graphics.printf('Começar partida', playBtn.x, playBtn.y + (playBtn.h - titleFont:getHeight()) / 2, playBtn.w, 'center')
 
   -- Botão Como Jogar
   local howBtn = buttons.howto
@@ -1545,7 +1596,7 @@ local function drawTitle()
   love.graphics.rectangle('line', howBtn.x, howBtn.y, howBtn.w, howBtn.h, 8, 8)
   love.graphics.setColor(0.6, 0.8, 1)
   love.graphics.setFont(hudFont)
-  love.graphics.printf('? Como jogar', howBtn.x, howBtn.y + (howBtn.h - hudFont:getHeight()) / 2, howBtn.w, 'center')
+  love.graphics.printf('Como jogar', howBtn.x, howBtn.y + (howBtn.h - hudFont:getHeight()) / 2, howBtn.w, 'center')
 
   -- Versão/créditos no canto
   love.graphics.setFont(smallFont)
@@ -1570,6 +1621,27 @@ local function drawHUD()
   love.graphics.setFont(bigTitleFont)
   love.graphics.setColor(1, 1, 1)
   love.graphics.print(tostring(wave), 65, 6)
+
+  -- Vidas extras (lado direito do wave)
+  if player.lives then
+    love.graphics.setFont(smallFont)
+    love.graphics.setColor(0.6, 0.5, 0.8)
+    love.graphics.print('VIDAS', 140, 16)
+    -- Desenha corações para cada vida
+    for i = 1, player.lives do
+      local heartX = 150 + (i-1) * 18
+      local heartY = 38
+      love.graphics.setColor(0.4, 1, 0.6)
+      love.graphics.circle('fill', heartX - 3, heartY - 2, 4)
+      love.graphics.circle('fill', heartX + 3, heartY - 2, 4)
+      love.graphics.polygon('fill', heartX - 6, heartY, heartX + 6, heartY, heartX, heartY + 6)
+    end
+    -- Se não tiver vidas, mostra X
+    if player.lives == 0 then
+      love.graphics.setColor(0.5, 0.5, 0.5)
+      love.graphics.print('0', 153, 32)
+    end
+  end
 
   -- HP Bar com coração
   local hpBarX, hpBarY = 20, 48
@@ -2384,16 +2456,27 @@ local function drawGameOver()
   -- Game Over text with glow
   love.graphics.setFont(bigTitleFont)
   love.graphics.setColor(Theme.colors.damage[1], Theme.colors.damage[2], Theme.colors.damage[3], 0.3)
-  love.graphics.printf('Game Over', 2, h/2 - 58, w, 'center')
+  love.graphics.printf('Game Over', 2, h/2 - 78, w, 'center')
   love.graphics.setColor(Theme.colors.damage)
-  love.graphics.printf('Game Over', 0, h/2 - 60, w, 'center')
+  love.graphics.printf('Game Over', 0, h/2 - 80, w, 'center')
 
   love.graphics.setFont(hudFont)
   love.graphics.setColor(Theme.colors.textNormal)
-  love.graphics.printf('Você chegou até a Wave ' .. wave, 0, h/2 - 10, w, 'center')
+  love.graphics.printf('Você chegou até a Wave ' .. wave, 0, h/2 - 30, w, 'center')
 
-  love.graphics.setColor(Theme.colors.textMuted)
-  love.graphics.printf('Pressione R para reiniciar', 0, h/2 + 20, w, 'center')
+  -- Mostra opção de continuar se tiver vidas
+  if player.lives > 0 then
+    love.graphics.setColor(0.4, 1, 0.6)
+    love.graphics.printf('Vidas restantes: ' .. player.lives, 0, h/2, w, 'center')
+    love.graphics.setColor(0.5, 1, 0.7)
+    love.graphics.printf('Pressione C para continuar', 0, h/2 + 25, w, 'center')
+    love.graphics.setColor(Theme.colors.textMuted)
+    love.graphics.printf('ou R para reiniciar do início', 0, h/2 + 50, w, 'center')
+  else
+    love.graphics.setColor(Theme.colors.textMuted)
+    love.graphics.printf('Sem vidas restantes', 0, h/2, w, 'center')
+    love.graphics.printf('Pressione R para reiniciar', 0, h/2 + 25, w, 'center')
+  end
 end
 
 function love.draw()
